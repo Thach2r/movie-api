@@ -53,3 +53,20 @@ class MovieTag(Base):
 
     movie = relationship("Movie", back_populates="movie_tags")
     tag = relationship("Tag", back_populates="movie_tags")
+
+class BoxOfficeMovie(Base):
+    __tablename__ = "boxoffice_movies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    genre = Column(String)
+    year = Column(Integer, index=True)
+    score = Column(Float)
+    votes = Column(Float)
+    director = Column(String)
+    star = Column(String)
+    country = Column(String)
+    budget = Column(Float)
+    gross = Column(Float)
+    company = Column(String)
+    runtime = Column(Float)

@@ -38,11 +38,13 @@ def genre_ratings(db: Session = Depends(get_db)):
 
 @router.get("/box-office-trends")
 def box_office_trends(db: Session = Depends(get_db)):
-    """Get box office trends by decade"""
-    movies = db.query(Movie).filter(
-        Movie.release_date != None,
-        Movie.revenue != None,
-        Movie.revenue > 0
+    """Get box office trends by decade using Kaggle dataset"""
+    from models import BoxOfficeMovie
+
+    movies = db.query(BoxOfficeMovie).filter(
+        BoxOfficeMovie.year != None,
+        BoxOfficeMovie.gross != None,
+        BoxOfficeMovie.gross > 0
     ).all()
 
     if not movies:
@@ -50,23 +52,23 @@ def box_office_trends(db: Session = Depends(get_db)):
 
     decade_data = {}
     for movie in movies:
-        try:
-            year = int(movie.release_date[:4])
-            decade = f"{(year // 10) * 10}s"
-        except (ValueError, TypeError):
-            continue
-
+        decade = f"{(movie.year // 10) * 10}s"
         if decade not in decade_data:
-            decade_data[decade] = {"total_revenue": 0, "count": 0}
-        decade_data[decade]["total_revenue"] += movie.revenue
+            decade_data[decade] = {"total_gross": 0, "count": 0, "top_movie": None, "top_gross": 0}
+        decade_data[decade]["total_gross"] += movie.gross
         decade_data[decade]["count"] += 1
+        if movie.gross > decade_data[decade]["top_gross"]:
+            decade_data[decade]["top_gross"] = movie.gross
+            decade_data[decade]["top_movie"] = movie.name
 
     results = [
         {
             "decade": decade,
-            "average_revenue": round(data["total_revenue"] / data["count"]),
-            "total_revenue": data["total_revenue"],
-            "movie_count": data["count"]
+            "average_gross": round(data["total_gross"] / data["count"]),
+            "total_gross": round(data["total_gross"]),
+            "movie_count": data["count"],
+            "top_movie": data["top_movie"],
+            "top_movie_gross": round(data["top_gross"])
         }
         for decade, data in decade_data.items()
     ]
