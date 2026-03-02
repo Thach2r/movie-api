@@ -128,3 +128,62 @@ def recommend(genre: str, db: Session = Depends(get_db)):
             for m in movies
         ]
     }
+
+
+@router.get("/top-box-office")
+def top_box_office(
+    decade: int = None,
+    n: int = 10,
+    db: Session = Depends(get_db)
+):
+    """
+    Get top N movies by box office gross, optionally filtered by decade.
+
+    - **decade**: Starting year of the decade, e.g. `1990` for the 1990s (optional)
+    - **n**: Number of results to return, default 10, max 50
+    """
+    from models import BoxOfficeMovie
+
+    # Validate n
+    if n < 1 or n > 50:
+        raise HTTPException(status_code=400, detail="n must be between 1 and 50")
+
+    query = db.query(BoxOfficeMovie).filter(
+        BoxOfficeMovie.gross != None,
+        BoxOfficeMovie.gross > 0,
+        BoxOfficeMovie.year != None
+    )
+
+    # Filter by decade if provided
+    if decade is not None:
+        if decade % 10 != 0:
+            raise HTTPException(status_code=400, detail="decade must be a multiple of 10, e.g. 1990")
+        query = query.filter(
+            BoxOfficeMovie.year >= decade,
+            BoxOfficeMovie.year < decade + 10
+        )
+
+    movies = query.order_by(BoxOfficeMovie.gross.desc()).limit(n).all()
+
+    if not movies:
+        detail = f"No box office data found for the {decade}s" if decade else "No box office data found"
+        raise HTTPException(status_code=404, detail=detail)
+
+    results = [
+        {
+            "rank": idx + 1,
+            "title": m.name,
+            "year": m.year,
+            "gross": round(m.gross),
+            "genre": m.genre,
+            "director": m.director,
+        }
+        for idx, m in enumerate(movies)
+    ]
+
+    return {
+        "decade": f"{decade}s" if decade else "all time",
+        "top_n": n,
+        "count": len(results),
+        "results": results
+    }

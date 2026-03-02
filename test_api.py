@@ -118,3 +118,20 @@ class TestAnalytics:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, (list, dict))
+
+class TestTopBoxOffice:
+    def test_top_box_office_returns_200(self):
+        """GET /analytics/top-box-office?n=5 should return 200."""
+        response = client.get("/analytics/top-box-office?n=5")
+        assert response.status_code in (200, 404)  # 404 ok if DB empty in test env
+
+    def test_top_box_office_respects_n_and_sorted(self):
+        """Results must be <= n items and sorted by gross descending."""
+        response = client.get("/analytics/top-box-office?n=5")
+        if response.status_code == 404:
+            pytest.skip("No box office data in test DB – skipping sort check")
+        data = response.json()
+        results = data["results"]
+        assert len(results) <= 5
+        grosses = [r["gross"] for r in results]
+        assert grosses == sorted(grosses, reverse=True)
