@@ -159,3 +159,8 @@ GET /analytics/top-box-office?decade=1990&n=5
 Full API documentation (all endpoints, parameters, example responses) is available as a PDF:
 
 **[CineMetrics API - Swagger UI.pdf](./CineMetrics%20API%20-%20Swagger%20UI.pdf)**
+
+---
+
+## Technical Report
+[Technical Report (PDF)](./technical_report.pdf)
