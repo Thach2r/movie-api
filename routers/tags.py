@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Tag, MovieTag, Movie
 from schemas import TagCreate, TagOut, MovieTagCreate, MovieTagOut
-from auth import require_api_key  # ← 新增
+from auth import require_api_key
 from typing import List
 
 router = APIRouter(tags=["Tags"])
 
 
-@router.post("/tags/", response_model=TagOut, dependencies=[Depends(require_api_key)])  # ← 加了 auth
+@router.post("/tags/", response_model=TagOut, dependencies=[Depends(require_api_key)])
 def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
     """Create a new tag"""
     existing = db.query(Tag).filter(Tag.name == tag.name).first()
@@ -22,13 +22,17 @@ def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
     return new_tag
 
 
-@router.get("/tags/", response_model=List[TagOut])  # ← 公开
-def get_all_tags(db: Session = Depends(get_db)):
-    """Get all tags"""
-    return db.query(Tag).all()
+@router.get("/tags/", response_model=List[TagOut])
+def get_all_tags(
+    skip: int = Query(default=0, ge=0, description="Number of records to skip"),
+    limit: int = Query(default=20, ge=1, le=100, description="Maximum number of records to return"),
+    db: Session = Depends(get_db)
+):
+    """Get all tags with pagination"""
+    return db.query(Tag).offset(skip).limit(limit).all()
 
 
-@router.get("/tags/{tag_id}", response_model=TagOut)  # ← 公开
+@router.get("/tags/{tag_id}", response_model=TagOut)
 def get_tag(tag_id: int, db: Session = Depends(get_db)):
     """Get a single tag by ID"""
     tag = db.query(Tag).filter(Tag.id == tag_id).first()
@@ -37,7 +41,7 @@ def get_tag(tag_id: int, db: Session = Depends(get_db)):
     return tag
 
 
-@router.put("/tags/{tag_id}", response_model=TagOut, dependencies=[Depends(require_api_key)])  # ← 加了 auth
+@router.put("/tags/{tag_id}", response_model=TagOut, dependencies=[Depends(require_api_key)])
 def update_tag(tag_id: int, tag_data: TagCreate, db: Session = Depends(get_db)):
     """Update an existing tag"""
     tag = db.query(Tag).filter(Tag.id == tag_id).first()
@@ -49,7 +53,7 @@ def update_tag(tag_id: int, tag_data: TagCreate, db: Session = Depends(get_db)):
     return tag
 
 
-@router.delete("/tags/{tag_id}", dependencies=[Depends(require_api_key)])  # ← 加了 auth
+@router.delete("/tags/{tag_id}", dependencies=[Depends(require_api_key)])
 def delete_tag(tag_id: int, db: Session = Depends(get_db)):
     """Delete a tag"""
     tag = db.query(Tag).filter(Tag.id == tag_id).first()
@@ -60,7 +64,7 @@ def delete_tag(tag_id: int, db: Session = Depends(get_db)):
     return {"message": f"Tag {tag_id} deleted successfully"}
 
 
-@router.post("/movies/{movie_id}/tags", response_model=MovieTagOut, dependencies=[Depends(require_api_key)])  # ← 加了 auth
+@router.post("/movies/{movie_id}/tags", response_model=MovieTagOut, dependencies=[Depends(require_api_key)])
 def add_tag_to_movie(movie_id: int, tag_data: MovieTagCreate, db: Session = Depends(get_db)):
     """Add a tag to a movie"""
     movie = db.query(Movie).filter(Movie.id == movie_id).first()
@@ -82,7 +86,7 @@ def add_tag_to_movie(movie_id: int, tag_data: MovieTagCreate, db: Session = Depe
     return movie_tag
 
 
-@router.get("/movies/{movie_id}/tags")  # ← 公开
+@router.get("/movies/{movie_id}/tags")
 def get_tags_for_movie(movie_id: int, db: Session = Depends(get_db)):
     """Get all tags for a specific movie"""
     movie = db.query(Movie).filter(Movie.id == movie_id).first()
@@ -92,7 +96,7 @@ def get_tags_for_movie(movie_id: int, db: Session = Depends(get_db)):
     return {"movie_id": movie_id, "tags": [mt.tag for mt in movie_tags]}
 
 
-@router.delete("/movies/{movie_id}/tags/{tag_id}", dependencies=[Depends(require_api_key)])  # ← 加了 auth
+@router.delete("/movies/{movie_id}/tags/{tag_id}", dependencies=[Depends(require_api_key)])
 def remove_tag_from_movie(movie_id: int, tag_id: int, db: Session = Depends(get_db)):
     """Remove a tag from a movie"""
     movie_tag = db.query(MovieTag).filter(

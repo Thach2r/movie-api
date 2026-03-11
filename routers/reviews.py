@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Review, Movie
 from schemas import ReviewCreate, ReviewUpdate, ReviewOut
-from auth import require_api_key  # ← 新增
+from auth import require_api_key
 from typing import List
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 
 
-@router.post("/", response_model=ReviewOut, dependencies=[Depends(require_api_key)])  # ← 加了 auth
+@router.post("/", response_model=ReviewOut, dependencies=[Depends(require_api_key)])
 def create_review(review: ReviewCreate, db: Session = Depends(get_db)):
     """Create a new review"""
     movie = db.query(Movie).filter(Movie.id == review.movie_id).first()
@@ -22,13 +22,17 @@ def create_review(review: ReviewCreate, db: Session = Depends(get_db)):
     return new_review
 
 
-@router.get("/", response_model=List[ReviewOut])  # ← 公开，不加 auth
-def get_all_reviews(db: Session = Depends(get_db)):
-    """Get all reviews"""
-    return db.query(Review).all()
+@router.get("/", response_model=List[ReviewOut])
+def get_all_reviews(
+    skip: int = Query(default=0, ge=0, description="Number of records to skip"),
+    limit: int = Query(default=20, ge=1, le=100, description="Maximum number of records to return"),
+    db: Session = Depends(get_db)
+):
+    """Get all reviews with pagination"""
+    return db.query(Review).offset(skip).limit(limit).all()
 
 
-@router.get("/{review_id}", response_model=ReviewOut)  # ← 公开
+@router.get("/{review_id}", response_model=ReviewOut)
 def get_review(review_id: int, db: Session = Depends(get_db)):
     """Get a single review by ID"""
     review = db.query(Review).filter(Review.id == review_id).first()
@@ -37,7 +41,7 @@ def get_review(review_id: int, db: Session = Depends(get_db)):
     return review
 
 
-@router.get("/movie/{movie_id}", response_model=List[ReviewOut])  # ← 公开
+@router.get("/movie/{movie_id}", response_model=List[ReviewOut])
 def get_reviews_by_movie(movie_id: int, db: Session = Depends(get_db)):
     """Get all reviews for a specific movie"""
     reviews = db.query(Review).filter(Review.movie_id == movie_id).all()
@@ -46,7 +50,7 @@ def get_reviews_by_movie(movie_id: int, db: Session = Depends(get_db)):
     return reviews
 
 
-@router.put("/{review_id}", response_model=ReviewOut, dependencies=[Depends(require_api_key)])  # ← 加了 auth
+@router.put("/{review_id}", response_model=ReviewOut, dependencies=[Depends(require_api_key)])
 def update_review(review_id: int, review_data: ReviewUpdate, db: Session = Depends(get_db)):
     """Update an existing review"""
     review = db.query(Review).filter(Review.id == review_id).first()
@@ -60,7 +64,7 @@ def update_review(review_id: int, review_data: ReviewUpdate, db: Session = Depen
     return review
 
 
-@router.delete("/{review_id}", dependencies=[Depends(require_api_key)])  # ← 加了 auth
+@router.delete("/{review_id}", dependencies=[Depends(require_api_key)])
 def delete_review(review_id: int, db: Session = Depends(get_db)):
     """Delete a review"""
     review = db.query(Review).filter(Review.id == review_id).first()
