@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from database import get_db
-from models import Movie, Review
+from models import Movie, BoxOfficeMovie
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -10,7 +9,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 @router.get("/genre-ratings")
 def genre_ratings(db: Session = Depends(get_db)):
     """Get average rating by genre"""
-    movies = db.query(Movie).filter(Movie.genre != None, Movie.rating != None).all()
+    movies = db.query(BoxOfficeMovie).filter(BoxOfficeMovie.genre != None, BoxOfficeMovie.score != None).all()
     if not movies:
         raise HTTPException(status_code=404, detail="No movie data found")
 
@@ -20,7 +19,7 @@ def genre_ratings(db: Session = Depends(get_db)):
         for genre in genres:
             if genre not in genre_data:
                 genre_data[genre] = {"total_rating": 0, "count": 0}
-            genre_data[genre]["total_rating"] += movie.rating
+            genre_data[genre]["total_rating"] += movie.score
             genre_data[genre]["count"] += 1
 
     results = [
@@ -31,7 +30,6 @@ def genre_ratings(db: Session = Depends(get_db)):
         }
         for genre, data in genre_data.items()
     ]
-
     results.sort(key=lambda x: x["average_rating"], reverse=True)
     return {"genre_ratings": results}
 
@@ -39,14 +37,11 @@ def genre_ratings(db: Session = Depends(get_db)):
 @router.get("/box-office-trends")
 def box_office_trends(db: Session = Depends(get_db)):
     """Get box office trends by decade using Kaggle dataset"""
-    from models import BoxOfficeMovie
-
     movies = db.query(BoxOfficeMovie).filter(
         BoxOfficeMovie.year != None,
         BoxOfficeMovie.gross != None,
         BoxOfficeMovie.gross > 0
     ).all()
-
     if not movies:
         raise HTTPException(status_code=404, detail="No box office data found")
 
@@ -72,7 +67,6 @@ def box_office_trends(db: Session = Depends(get_db)):
         }
         for decade, data in decade_data.items()
     ]
-
     results.sort(key=lambda x: x["decade"])
     return {"box_office_trends": results}
 
@@ -80,7 +74,7 @@ def box_office_trends(db: Session = Depends(get_db)):
 @router.get("/rating-distribution")
 def rating_distribution(db: Session = Depends(get_db)):
     """Get distribution of movie ratings"""
-    movies = db.query(Movie).filter(Movie.rating != None).all()
+    movies = db.query(BoxOfficeMovie).filter(BoxOfficeMovie.score != None).all()
     if not movies:
         raise HTTPException(status_code=404, detail="No rating data found")
 
@@ -88,9 +82,8 @@ def rating_distribution(db: Session = Depends(get_db)):
         "1-2": 0, "2-3": 0, "3-4": 0, "4-5": 0,
         "5-6": 0, "6-7": 0, "7-8": 0, "8-9": 0, "9-10": 0
     }
-
     for movie in movies:
-        rating = movie.rating
+        rating = movie.score
         if rating < 2: distribution["1-2"] += 1
         elif rating < 3: distribution["2-3"] += 1
         elif rating < 4: distribution["3-4"] += 1
@@ -107,10 +100,10 @@ def rating_distribution(db: Session = Depends(get_db)):
 @router.get("/recommend")
 def recommend(genre: str, db: Session = Depends(get_db)):
     """Recommend top movies by genre"""
-    movies = db.query(Movie).filter(
-        Movie.genre.ilike(f"%{genre}%"),
-        Movie.rating != None
-    ).order_by(Movie.rating.desc()).limit(10).all()
+    movies = db.query(BoxOfficeMovie).filter(
+        BoxOfficeMovie.genre.ilike(f"%{genre}%"),
+        BoxOfficeMovie.score != None
+    ).order_by(BoxOfficeMovie.score.desc()).limit(10).all()
 
     if not movies:
         raise HTTPException(status_code=404, detail=f"No movies found for genre: {genre}")
@@ -119,11 +112,11 @@ def recommend(genre: str, db: Session = Depends(get_db)):
         "genre": genre,
         "recommendations": [
             {
-                "id": m.id,
-                "title": m.title,
-                "rating": m.rating,
-                "release_date": m.release_date,
-                "overview": m.overview
+                "title": m.name,
+                "year": m.year,
+                "rating": m.score,
+                "director": m.director,
+                "genre": m.genre
             }
             for m in movies
         ]
@@ -142,9 +135,6 @@ def top_box_office(
     - **decade**: Starting year of the decade, e.g. `1990` for the 1990s (optional)
     - **n**: Number of results to return, default 10, max 50
     """
-    from models import BoxOfficeMovie
-
-    # Validate n
     if n < 1 or n > 50:
         raise HTTPException(status_code=400, detail="n must be between 1 and 50")
 
@@ -154,7 +144,6 @@ def top_box_office(
         BoxOfficeMovie.year != None
     )
 
-    # Filter by decade if provided
     if decade is not None:
         if decade % 10 != 0:
             raise HTTPException(status_code=400, detail="decade must be a multiple of 10, e.g. 1990")
