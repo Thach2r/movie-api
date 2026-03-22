@@ -9,7 +9,7 @@ from typing import List
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 
 
-@router.post("/", response_model=ReviewOut, dependencies=[Depends(require_api_key)])
+@router.post("/", response_model=ReviewOut, status_code=201, dependencies=[Depends(require_api_key)])
 def create_review(review: ReviewCreate, db: Session = Depends(get_db)):
     """Create a new review"""
     movie = db.query(Movie).filter(Movie.id == review.movie_id).first()
