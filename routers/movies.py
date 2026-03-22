@@ -14,7 +14,7 @@ async def search(query: str, db: Session = Depends(get_db)):
     # Check locally first
     local = db.query(Movie).filter(Movie.title.ilike(f"%{query}%")).all()
     if local:
-        return {"source": "local", "results": local}
+        return {"source": "local", "results": [m for m in local if m.title]}
 
     # If not found locally, call TMDB
     results = await search_movies(query)
@@ -58,7 +58,7 @@ async def popular(db: Session = Depends(get_db)):
         else:
             saved.append(existing)
 
-    return {"results": saved}
+    return {"results": [m for m in saved if m.title]}
 
 
 @router.get("/{movie_id}", response_model=MovieOut)
