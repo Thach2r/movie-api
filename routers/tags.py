@@ -9,7 +9,7 @@ from typing import List
 router = APIRouter(tags=["Tags"])
 
 
-@router.post("/tags/", response_model=TagOut, dependencies=[Depends(require_api_key)])
+@router.post("/tags/", response_model=TagOut, status_code=201, dependencies=[Depends(require_api_key)])
 def create_tag(tag: TagCreate, db: Session = Depends(get_db)):
     """Create a new tag"""
     existing = db.query(Tag).filter(Tag.name == tag.name).first()
